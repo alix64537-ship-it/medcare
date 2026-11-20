@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Context, type ReactNode } from "react";
 
 import { bestDoctorFor } from "./data";
 import { addDays, generateId, generateTicket, toISODate } from "./format";
@@ -177,7 +177,14 @@ interface MedCareContextValue {
   clearAll: () => void;
 }
 
-const MedCareContext = createContext<MedCareContextValue | null>(null);
+// Keep one context object across hot module reloads: when this file is re-executed during
+// development, a fresh createContext() would orphan the already-mounted Provider and every
+// consumer would read null ("useMedCare must be used inside MedCareProvider").
+const globalStore = globalThis as typeof globalThis & {
+  __medcareContext?: Context<MedCareContextValue | null>;
+};
+const MedCareContext =
+  globalStore.__medcareContext ?? (globalStore.__medcareContext = createContext<MedCareContextValue | null>(null));
 
 export function MedCareProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<MedCareData>(() => ({
