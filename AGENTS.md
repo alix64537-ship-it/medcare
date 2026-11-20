@@ -28,3 +28,8 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- MedCare is a single-route client app (`/`) with tabs/role held in `src/lib/medcare/store.tsx` context and persisted to localStorage; main content renders only after hydration. Why: all data is device-local, so gating avoids SSR/client mismatches.
+- Clinical logic (triage, BMI, blood pressure) lives as pure functions in `src/lib/medcare/*.ts` with vitest tests beside them. Why: rules must stay testable and separate from UI.
+- AI-triage is rule-based (no model calls). Why: user chose predictable, instant, free rules.

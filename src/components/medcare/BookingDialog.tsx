@@ -57,14 +57,14 @@ export function BookingDialog() {
   const { booking, closeBooking, data, addAppointment, setSettingsOpen, setTab } = useMedCare();
   const doctor = booking ? getDoctor(booking.doctorId) : undefined;
   const days = useMemo(() => nextWorkDays(10), []);
-  const [date, setDate] = useState(days[0]);
+  const [date, setDate] = useState<string>(days[0] ?? "");
   const [time, setTime] = useState<string | null>(null);
   const [complaints, setComplaints] = useState("");
   const [confirmed, setConfirmed] = useState<Appointment | null>(null);
 
   useEffect(() => {
     if (booking) {
-      setDate(days[0]);
+      setDate(days[0] ?? "");
       setTime(null);
       setComplaints(booking.complaints);
       setConfirmed(null);
@@ -99,7 +99,7 @@ export function BookingDialog() {
 
   return (
     <Dialog open={!!booking} onOpenChange={(o) => !o && closeBooking()}>
-      <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-2xl p-5 sm:p-6">
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-2xl p-5 sm:p-6">
         {doctor && !confirmed && (
           <>
             <DialogHeader className="text-left">

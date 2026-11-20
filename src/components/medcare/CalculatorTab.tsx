@@ -61,7 +61,7 @@ export function CalculatorTab() {
             <div className="relative pt-1">
               <div className="flex h-2 overflow-hidden rounded-full">
                 {BMI_SCALE.map((s, i) => {
-                  const from = i === 0 ? 15 : BMI_SCALE[i - 1].to;
+                  const from = i === 0 ? 15 : (BMI_SCALE[i - 1]?.to ?? 15);
                   return <div key={s.to} className={s.cls} style={{ width: `${((s.to - from) / 25) * 100}%` }} />;
                 })}
               </div>

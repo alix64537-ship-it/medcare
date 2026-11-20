@@ -71,5 +71,5 @@ export function assessBP(systolic: number, diastolic: number): BPResult | null {
       advice: "Если беспокоят слабость, головокружение или обмороки — обратитесь к терапевту.",
     };
   }
-  return BP_LEVELS[level];
+  return BP_LEVELS[level] ?? null;
 }

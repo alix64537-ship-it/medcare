@@ -20,7 +20,7 @@ export function bestDoctorFor(specialty: Specialty): Doctor {
   const list = DOCTORS.filter((d) => d.specialty === specialty).sort(
     (a, b) => b.rating - a.rating || b.experience - a.experience,
   );
-  return list[0] ?? DOCTORS[0];
+  return (list[0] ?? DOCTORS[0]) as Doctor;
 }
 
 export const TIME_SLOTS = [
