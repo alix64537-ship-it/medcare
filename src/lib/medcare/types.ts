@@ -54,7 +54,17 @@ export interface TriageResult {
   createdAt: string;
 }
 
+export interface FamilyMember extends Profile {
+  id: string;
+  relation: string;
+  birthDate: string; // YYYY-MM-DD or ""
+}
+
+export const MAIN_MEMBER_ID = "me";
+
 export interface PatientSnapshot {
+  relation?: string;
+  birthDate?: string;
   fullName: string;
   phone: string;
   bloodGroup: BloodGroup;
@@ -68,6 +78,7 @@ export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
 export interface Appointment {
   id: string;
   doctorId: string;
+  memberId: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   complaints: string;
@@ -81,4 +92,22 @@ export interface Appointment {
   ticket: string;
   createdAt: string;
   completedAt?: string;
+}
+
+export type LabKey = "hgb" | "wbc" | "esr" | "glucose" | "cholesterol" | "crp";
+export type LabValues = Partial<Record<LabKey, number>>;
+
+export interface LabResult {
+  id: string;
+  memberId: string;
+  date: string; // YYYY-MM-DD
+  values: LabValues;
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  from: "patient" | "doctor";
+  text: string;
+  at: string;
 }
