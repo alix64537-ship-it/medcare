@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getDoctor, TIME_SLOTS } from "@/lib/medcare/data";
-import { addDays, formatBlood, formatDateLong, formatDayChip, formatPrice, initials, toISODate } from "@/lib/medcare/format";
+import { addDays, formatAge, formatBlood, formatDateLong, formatDayChip, formatPrice, initials, toISODate } from "@/lib/medcare/format";
 import { useMedCare } from "@/lib/medcare/store";
 import type { Appointment } from "@/lib/medcare/types";
+import { FamilySwitcher } from "./FamilySwitcher";
 import { InfoRow, UrgencyBadge } from "./primitives";
 
 function nextWorkDays(count: number): string[] {
@@ -39,6 +40,10 @@ export function TicketView({ appt }: { appt: Appointment }) {
           <div className="text-sm text-foreground">
             {formatDateLong(appt.date)}, {appt.time}
           </div>
+          <div className="text-sm font-medium text-foreground">
+            Пациент: {appt.patient.fullName}
+            {appt.patient.relation && appt.patient.relation !== "Я (основной)" ? ` · ${appt.patient.relation}` : ""}
+          </div>
           <div className="text-sm text-muted-foreground">
             {doctor?.name} · {doctor?.specialty}
             <br />
@@ -54,7 +59,7 @@ export function TicketView({ appt }: { appt: Appointment }) {
 }
 
 export function BookingDialog() {
-  const { booking, closeBooking, data, addAppointment, setSettingsOpen, setTab } = useMedCare();
+  const { booking, closeBooking, data, addAppointment, setSettingsOpen, setTab, activeMember } = useMedCare();
   const doctor = booking ? getDoctor(booking.doctorId) : undefined;
   const days = useMemo(() => nextWorkDays(10), []);
   const [date, setDate] = useState<string>(days[0] ?? "");
@@ -77,8 +82,10 @@ export function BookingDialog() {
       .map((a) => a.time),
   );
 
-  const { profile, privacy } = data;
-  const profileReady = profile.fullName.trim().length > 0 && profile.phone.trim().length > 0;
+  const { privacy } = data;
+  const patient = activeMember;
+  const contactPhone = patient.phone || data.profile.phone;
+  const profileReady = patient.fullName.trim().length > 0 && contactPhone.trim().length > 0;
   const canSubmit = !!time && complaints.trim().length > 0 && profileReady && privacy.consentMedData;
   const hasTriage = !!booking?.anamnesis;
 
@@ -203,17 +210,21 @@ export function BookingDialog() {
             </section>
 
             <section className="space-y-3 rounded-2xl border border-border p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <FamilySwitcher label="Кого записываем" />
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                 <h3 className="text-sm font-semibold text-foreground">Данные пациента</h3>
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSettingsOpen(true)}>
-                  Изменить в профиле
-                </Button>
+                {patient.id === "me" && (
+                  <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSettingsOpen(true)}>
+                    Изменить в профиле
+                  </Button>
+                )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <InfoRow label="ФИО" value={profile.fullName || "—"} />
-                <InfoRow label="Телефон" value={profile.phone || "—"} />
-                <InfoRow label="Группа крови" value={formatBlood(profile.bloodGroup, profile.rh)} />
-                <InfoRow label="Аллергии" value={profile.allergies || "Нет данных"} />
+                <InfoRow label="ФИО" value={patient.fullName || "—"} />
+                <InfoRow label="Телефон для связи" value={contactPhone || "—"} />
+                <InfoRow label="Группа крови" value={formatBlood(patient.bloodGroup, patient.rh)} />
+                <InfoRow label="Аллергии" value={patient.allergies || "Нет данных"} />
+                {patient.birthDate && <InfoRow label="Возраст" value={formatAge(patient.birthDate)} />}
               </div>
               {!profileReady && (
                 <p className="flex items-start gap-1.5 text-xs text-urgent-ink">

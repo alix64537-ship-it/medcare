@@ -61,3 +61,32 @@ export function generateTicket(): string {
 export function generateId(): string {
   return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+export function pluralYears(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "год";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "года";
+  return "лет";
+}
+
+export function ageFrom(birthDate: string | undefined, now = new Date()): number | null {
+  if (!birthDate) return null;
+  const b = parseISODate(birthDate);
+  if (Number.isNaN(b.getTime())) return null;
+  let age = now.getFullYear() - b.getFullYear();
+  const beforeBirthday = now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate());
+  if (beforeBirthday) age--;
+  return age >= 0 ? age : null;
+}
+
+export function formatAge(birthDate: string | undefined): string {
+  const age = ageFrom(birthDate);
+  return age === null ? "" : `${age} ${pluralYears(age)}`;
+}
+
+/** "Фамилия Имя Отчество" → "Имя". */
+export function givenName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts[1] ?? parts[0] ?? "";
+}

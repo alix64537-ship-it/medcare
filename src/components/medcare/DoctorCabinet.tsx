@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardPlus, Droplet, Hourglass, Siren, Sparkles, Stethoscope } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardPlus, Droplet, Hourglass, Siren, Sparkles, Stethoscope, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,17 +7,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getDoctor } from "@/lib/medcare/data";
-import { formatBlood, formatDateLong } from "@/lib/medcare/format";
+import { formatAge, formatBlood, formatDateLong } from "@/lib/medcare/format";
 import { useMedCare } from "@/lib/medcare/store";
 import type { Appointment, Urgency } from "@/lib/medcare/types";
 import { URGENCY_STYLE } from "@/lib/medcare/urgency";
+import { LabSummary } from "./LabSummary";
 import { Card, Chip, EmptyState, InfoRow, Segmented, UrgencyBadge } from "./primitives";
 
 type UrgencyFilter = "all" | Urgency;
 const URGENCY_ORDER: Record<string, number> = { red: 0, yellow: 1, green: 2, none: 3 };
 
 function PatientCard({ appt }: { appt: Appointment }) {
-  const { completeAppointment } = useMedCare();
+  const { completeAppointment, data } = useMedCare();
+  const latestLab = data.labs
+    .filter((l) => l.memberId === appt.memberId)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))[0];
+  const isFamily = !!appt.patient.relation && appt.patient.relation !== "Я (основной)";
   const doctor = getDoctor(appt.doctorId);
   const [diagnosis, setDiagnosis] = useState("");
   const [prescriptions, setPrescriptions] = useState("");
@@ -30,6 +35,16 @@ function PatientCard({ appt }: { appt: Appointment }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-foreground">{p.fullName || "Пациент"}</h3>
+          {(isFamily || p.birthDate) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {isFamily && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
+                  <Users className="size-3" /> Семейный профиль · {p.relation}
+                </span>
+              )}
+              {p.birthDate && <span className="text-xs text-muted-foreground">{formatAge(p.birthDate)}</span>}
+            </div>
+          )}
           <div className="text-sm text-muted-foreground">
             {formatDateLong(appt.date)}, {appt.time} · {doctor?.name} ({doctor?.specialty})
           </div>
@@ -74,6 +89,11 @@ function PatientCard({ appt }: { appt: Appointment }) {
             {appt.anamnesis ?? "Пациент не проходил AI-триаж или не дал согласие на передачу его данных."}
           </p>
         </div>
+        {latestLab ? (
+          <LabSummary lab={latestLab} />
+        ) : (
+          <p className="text-xs text-muted-foreground">Сохранённых анализов в медкарте пациента нет.</p>
+        )}
       </div>
 
       {appt.status === "upcoming" ? (

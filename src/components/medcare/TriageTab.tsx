@@ -50,7 +50,7 @@ function Question({ n, title, children }: { n: number; title: string; children: 
 }
 
 export function TriageTab() {
-  const { data, setLastTriage, bookFromTriage } = useMedCare();
+  const { data, setLastTriage, bookFromTriage, activeMember } = useMedCare();
   const [step, setStep] = useState(0);
   const [complaint, setComplaint] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -78,7 +78,7 @@ export function TriageTab() {
     if (!duration || !temperature || redFlags === null) return;
     const r = runTriage(
       { complaint, tags, duration, temperature, redFlags },
-      { anonymize: data.privacy.anonymizeAI, patientName: data.profile.fullName },
+      { anonymize: data.privacy.anonymizeAI, patientName: activeMember.fullName },
     );
     setResult(r);
     setLastTriage(r);
@@ -130,6 +130,9 @@ export function TriageTab() {
             placeholder="Например: второй день болит голова, к вечеру сильнее, иногда тошнит"
             className="rounded-xl bg-card"
           />
+          <p className="text-xs text-muted-foreground">
+            Профиль: <b className="text-foreground">{activeMember.relation}</b> — {activeMember.fullName || "без имени"}
+          </p>
           {data.privacy.anonymizeAI && (
             <p className="flex items-center gap-1.5 text-xs text-primary">
               <ShieldCheck className="size-3.5" /> Анонимизация включена: ФИО не попадёт в анамнез.

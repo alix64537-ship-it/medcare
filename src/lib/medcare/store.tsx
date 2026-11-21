@@ -2,7 +2,20 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { bestDoctorFor } from "./data";
 import { addDays, generateId, generateTicket, toISODate } from "./format";
-import type { Appointment, PatientSnapshot, Privacy, Profile, Specialty, TriageResult, Urgency } from "./types";
+import {
+  MAIN_MEMBER_ID,
+  type Appointment,
+  type ChatMessage,
+  type FamilyMember,
+  type LabResult,
+  type LabValues,
+  type PatientSnapshot,
+  type Privacy,
+  type Profile,
+  type Specialty,
+  type TriageResult,
+  type Urgency,
+} from "./types";
 
 export type Role = "patient" | "doctor";
 export type PatientTab = "doctors" | "record" | "calc" | "ai";
@@ -19,6 +32,10 @@ export interface MedCareData {
   privacy: Privacy;
   appointments: Appointment[];
   lastTriage: TriageResult | null;
+  family: FamilyMember[];
+  activeMemberId: string;
+  labs: LabResult[];
+  chats: Record<string, ChatMessage[]>;
 }
 
 const STORAGE_KEY = "medcare:v1";
@@ -48,8 +65,51 @@ const DEMO_PROFILE: Profile = {
   allergies: "Пенициллин",
 };
 
-export function snapshotOf(p: Profile): PatientSnapshot {
-  return { fullName: p.fullName, phone: p.phone, bloodGroup: p.bloodGroup, rh: p.rh, chronic: p.chronic, allergies: p.allergies };
+const DEMO_FAMILY: FamilyMember[] = [
+  {
+    id: "f-child",
+    relation: "Ребёнок",
+    fullName: "Нурланов Арсен Ерланович",
+    birthDate: "2019-04-12",
+    phone: "",
+    bloodGroup: "II",
+    rh: "+",
+    chronic: "",
+    allergies: "",
+  },
+  {
+    id: "f-parent",
+    relation: "Родитель",
+    fullName: "Нурланова Гульнара Сериковна",
+    birthDate: "1962-09-03",
+    phone: "+7 701 765 43 21",
+    bloodGroup: "I",
+    rh: "+",
+    chronic: "Гипертоническая болезнь II ст.",
+    allergies: "Аспирин",
+  },
+];
+
+/** Main profile as a family member, so every profile is handled the same way. */
+export function mainMember(profile: Profile): FamilyMember {
+  return { ...profile, id: MAIN_MEMBER_ID, relation: "Я (основной)", birthDate: "" };
+}
+
+export function membersOf(data: Pick<MedCareData, "profile" | "family">): FamilyMember[] {
+  return [mainMember(data.profile), ...data.family];
+}
+
+export function snapshotOf(m: Profile & Partial<Pick<FamilyMember, "relation" | "birthDate">>, fallbackPhone = ""): PatientSnapshot {
+  return {
+    fullName: m.fullName,
+    phone: m.phone || fallbackPhone,
+    bloodGroup: m.bloodGroup,
+    rh: m.rh,
+    chronic: m.chronic,
+    allergies: m.allergies,
+    relation: m.relation,
+    birthDate: m.birthDate,
+  };
 }
 
 function createSeedData(): MedCareData {
@@ -60,10 +120,48 @@ function createSeedData(): MedCareData {
     profile: DEMO_PROFILE,
     privacy: DEFAULT_PRIVACY,
     lastTriage: null,
+    family: DEMO_FAMILY,
+    activeMemberId: MAIN_MEMBER_ID,
+    chats: {},
+    labs: [
+      {
+        id: "seed-lab-parent",
+        memberId: "f-parent",
+        date: d(-5),
+        values: { hgb: 128, wbc: 6.2, esr: 18, glucose: 6.1, cholesterol: 6.6, crp: 3 },
+        createdAt: now,
+      },
+      {
+        id: "seed-lab-ext",
+        memberId: "ext-ermekov",
+        date: d(-2),
+        values: { hgb: 148, wbc: 7.9, esr: 12, glucose: 5.8, cholesterol: 7.1, crp: 4 },
+        createdAt: now,
+      },
+    ],
     appointments: [
+      {
+        id: "seed-child-1",
+        doctorId: "d7",
+        memberId: "f-child",
+        date: d(-20),
+        time: "11:30",
+        complaints: "Насморк и кашель 3 дня, температура 37,8 °C.",
+        patient: snapshotOf(DEMO_FAMILY[0] as FamilyMember, DEMO_PROFILE.phone),
+        own: true,
+        urgency: "green",
+        anamnesis: null,
+        status: "completed",
+        diagnosis: "Острый назофарингит (J00)",
+        prescriptions: "Промывание носа солевым раствором 3–4 раза в день. Обильное питьё. Парацетамол детский 15 мг/кг при температуре выше 38,5 °C.",
+        ticket: "MC-K3D7FA",
+        createdAt: now,
+        completedAt: now,
+      },
       {
         id: "seed-own-1",
         doctorId: "d1",
+        memberId: "me",
         date: d(-12),
         time: "10:30",
         complaints: "Слабость, сухой кашель около недели, температура до 37,5 °C.",
@@ -83,6 +181,7 @@ function createSeedData(): MedCareData {
       {
         id: "seed-q-1",
         doctorId: "d3",
+        memberId: "ext-ermekov",
         date: d(1),
         time: "09:30",
         complaints: "Давящая боль за грудиной при подъёме по лестнице, давление 165/100.",
@@ -98,6 +197,7 @@ function createSeedData(): MedCareData {
       {
         id: "seed-q-2",
         doctorId: "d7",
+        memberId: "ext-smirnova",
         date: d(1),
         time: "11:00",
         complaints: "У сына (5 лет) температура 38,6 °C второй день, насморк.",
@@ -113,6 +213,7 @@ function createSeedData(): MedCareData {
       {
         id: "seed-q-3",
         doctorId: "d5",
+        memberId: "ext-abenova",
         date: d(2),
         time: "15:00",
         complaints: "Периодические головные боли к вечеру, плановая консультация.",
@@ -136,8 +237,15 @@ function loadData(): MedCareData {
     return {
       profile: { ...EMPTY_PROFILE, ...parsed.profile },
       privacy: { ...DEFAULT_PRIVACY, ...parsed.privacy },
-      appointments: Array.isArray(parsed.appointments) ? parsed.appointments : [],
+      appointments: (Array.isArray(parsed.appointments) ? parsed.appointments : []).map((a) => ({
+        ...a,
+        memberId: a.memberId ?? (a.own ? MAIN_MEMBER_ID : `ext-${a.id}`),
+      })),
       lastTriage: parsed.lastTriage ?? null,
+      family: Array.isArray(parsed.family) ? parsed.family : DEMO_FAMILY,
+      activeMemberId: parsed.activeMemberId ?? MAIN_MEMBER_ID,
+      labs: Array.isArray(parsed.labs) ? parsed.labs : [],
+      chats: parsed.chats && typeof parsed.chats === "object" ? parsed.chats : {},
     };
   } catch {
     return createSeedData();
@@ -175,6 +283,15 @@ interface MedCareContextValue {
   cancelAppointment: (id: string) => void;
   completeAppointment: (id: string, diagnosis: string, prescriptions: string) => void;
   clearAll: () => void;
+  members: FamilyMember[];
+  activeMember: FamilyMember;
+  setActiveMember: (id: string) => void;
+  addFamilyMember: (m: Omit<FamilyMember, "id">) => FamilyMember;
+  saveLab: (values: LabValues, date: string) => LabResult;
+  chatApptId: string | null;
+  openChat: (appointmentId: string) => void;
+  closeChat: () => void;
+  addChatMessage: (appointmentId: string, from: ChatMessage["from"], text: string) => void;
 }
 
 // Keep one context object across hot module reloads: when this file is re-executed during
@@ -192,7 +309,12 @@ export function MedCareProvider({ children }: { children: ReactNode }) {
     privacy: DEFAULT_PRIVACY,
     appointments: [],
     lastTriage: null,
+    family: [],
+    activeMemberId: MAIN_MEMBER_ID,
+    labs: [],
+    chats: {},
   }));
+  const [chatApptId, setChatApptId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [role, setRole] = useState<Role>("patient");
   const [tab, setTab] = useState<PatientTab>("doctors");
@@ -226,12 +348,43 @@ export function MedCareProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, lastTriage: t }));
   }, []);
 
+  const members = useMemo(() => membersOf(data), [data]);
+  const activeMember = members.find((m) => m.id === data.activeMemberId) ?? (members[0] as FamilyMember);
+
+  const setActiveMember = useCallback((id: string) => {
+    setData((d) => ({ ...d, activeMemberId: id }));
+  }, []);
+
+  const addFamilyMember = useCallback((m: Omit<FamilyMember, "id">): FamilyMember => {
+    const member: FamilyMember = { ...m, id: `f-${generateId()}` };
+    setData((d) => ({ ...d, family: [...d.family, member], activeMemberId: member.id }));
+    return member;
+  }, []);
+
+  const saveLab = useCallback(
+    (values: LabValues, date: string): LabResult => {
+      const lab: LabResult = { id: generateId(), memberId: activeMember.id, date, values, createdAt: new Date().toISOString() };
+      setData((d) => ({ ...d, labs: [...d.labs, lab] }));
+      return lab;
+    },
+    [activeMember.id],
+  );
+
+  const addChatMessage = useCallback((appointmentId: string, from: ChatMessage["from"], text: string) => {
+    const msg: ChatMessage = { id: generateId(), from, text, at: new Date().toISOString() };
+    setData((d) => ({ ...d, chats: { ...d.chats, [appointmentId]: [...(d.chats[appointmentId] ?? []), msg] } }));
+  }, []);
+
+  const openChat = useCallback((id: string) => setChatApptId(id), []);
+  const closeChat = useCallback(() => setChatApptId(null), []);
+
   const addAppointment = useCallback(
     (input: NewAppointmentInput): Appointment => {
       const appt: Appointment = {
         id: generateId(),
         ...input,
-        patient: snapshotOf(data.profile),
+        memberId: activeMember.id,
+        patient: snapshotOf(activeMember, data.profile.phone),
         own: true,
         status: "upcoming",
         ticket: generateTicket(),
@@ -240,7 +393,7 @@ export function MedCareProvider({ children }: { children: ReactNode }) {
       setData((d) => ({ ...d, appointments: [...d.appointments, appt] }));
       return appt;
     },
-    [data.profile],
+    [activeMember, data.profile.phone],
   );
 
   const cancelAppointment = useCallback((id: string) => {
@@ -267,8 +420,18 @@ export function MedCareProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    setData({ profile: EMPTY_PROFILE, privacy: DEFAULT_PRIVACY, appointments: [], lastTriage: null });
+    setData({
+    profile: EMPTY_PROFILE,
+    privacy: DEFAULT_PRIVACY,
+    appointments: [],
+    lastTriage: null,
+    family: [],
+    activeMemberId: MAIN_MEMBER_ID,
+    labs: [],
+    chats: {},
+  });
     setBooking(null);
+    setChatApptId(null);
   }, []);
 
   const openBooking = useCallback((draft: BookingDraft) => setBooking(draft), []);
@@ -310,8 +473,17 @@ export function MedCareProvider({ children }: { children: ReactNode }) {
       cancelAppointment,
       completeAppointment,
       clearAll,
+      members,
+      activeMember,
+      setActiveMember,
+      addFamilyMember,
+      saveLab,
+      chatApptId,
+      openChat,
+      closeChat,
+      addChatMessage,
     }),
-    [hydrated, data, role, tab, specialtyFilter, booking, openBooking, closeBooking, bookFromTriage, settingsOpen, updateProfile, updatePrivacy, setLastTriage, addAppointment, cancelAppointment, completeAppointment, clearAll],
+    [hydrated, data, role, tab, specialtyFilter, booking, openBooking, closeBooking, bookFromTriage, settingsOpen, updateProfile, updatePrivacy, setLastTriage, addAppointment, cancelAppointment, completeAppointment, clearAll, members, activeMember, setActiveMember, addFamilyMember, saveLab, chatApptId, openChat, closeChat, addChatMessage],
   );
 
   return <MedCareContext.Provider value={value}>{children}</MedCareContext.Provider>;

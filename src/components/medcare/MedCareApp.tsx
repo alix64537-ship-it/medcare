@@ -6,6 +6,7 @@ import { MedCareProvider, useMedCare, type PatientTab } from "@/lib/medcare/stor
 import { AppHeader } from "./AppHeader";
 import { BookingDialog } from "./BookingDialog";
 import { CalculatorTab } from "./CalculatorTab";
+import { ChatDialog } from "./ChatDialog";
 import { DoctorCabinet } from "./DoctorCabinet";
 import { DoctorsTab } from "./DoctorsTab";
 import { MedRecordTab } from "./MedRecordTab";
@@ -75,6 +76,7 @@ function Shell() {
         <>
           <BookingDialog />
           <SettingsDialog />
+          <ChatDialog />
         </>
       )}
     </div>

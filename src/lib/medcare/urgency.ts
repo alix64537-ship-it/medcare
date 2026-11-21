@@ -31,3 +31,9 @@ export const TONE_STYLE: Record<Tone, string> = {
   urgent: "bg-urgent-soft text-urgent-ink border-urgent/30",
   info: "bg-info-soft text-info-ink border-info/30",
 };
+
+export const LAB_SEVERITY_STYLE: Record<"ok" | "mild" | "severe", { badge: string; dot: string }> = {
+  ok: { badge: "bg-success-soft text-success-ink border-success/30", dot: "bg-success" },
+  mild: { badge: "bg-warning-soft text-warning-ink border-warning/40", dot: "bg-warning" },
+  severe: { badge: "bg-urgent-soft text-urgent-ink border-urgent/30", dot: "bg-urgent" },
+};

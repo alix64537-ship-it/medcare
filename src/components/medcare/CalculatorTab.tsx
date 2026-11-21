@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { assessBP, calcBMI } from "@/lib/medcare/calculators";
 import { TONE_STYLE } from "@/lib/medcare/urgency";
+import { LabDecoder } from "./LabDecoder";
 import { Card, SectionTitle } from "./primitives";
 
 function NumField({ id, label, unit, value, onChange, placeholder }: { id: string; label: string; unit: string; value: string; onChange: (v: string) => void; placeholder: string }) {
@@ -97,6 +98,8 @@ export function CalculatorTab() {
           </p>
         )}
       </Card>
+
+      <LabDecoder />
 
       <p className="text-xs text-muted-foreground md:col-span-2">
         Калькуляторы носят справочный характер и не заменяют консультацию врача.
